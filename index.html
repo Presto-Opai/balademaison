@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Carrot Hunt — Balade à la Maison</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body { overflow: hidden; background: #1a1a2e; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; }
+    canvas { display: block; }
+
+    #hud {
+      position: fixed; top: 0; left: 0; width: 100%;
+      pointer-events: none; z-index: 10;
+    }
+    #carrot-count {
+      position: absolute; top: 20px; left: 20px;
+      font-size: 26px; color: #fff;
+      background: rgba(0,0,0,0.55);
+      padding: 12px 22px; border-radius: 12px;
+      letter-spacing: 1px;
+      text-shadow: 0 2px 4px rgba(0,0,0,0.4);
+    }
+    #proximity-hint {
+      position: absolute; bottom: 60px; left: 50%;
+      transform: translateX(-50%);
+      font-size: 18px; color: #FFD700;
+      background: rgba(0,0,0,0.6);
+      padding: 8px 20px; border-radius: 8px;
+      opacity: 0; transition: opacity 0.3s;
+    }
+    #crosshair {
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: 6px; height: 6px;
+      background: rgba(255,255,255,0.4);
+      border-radius: 50%;
+      z-index: 5; display: none;
+      box-shadow: 0 0 6px rgba(255,255,255,0.2);
+    }
+
+    /* Start screen */
+    #start-screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: linear-gradient(135deg, #1a1a2e 0%, #16213e 50%, #0f3460 100%);
+      display: flex; align-items: center; justify-content: center;
+      flex-direction: column; z-index: 20; cursor: pointer;
+      color: #fff;
+    }
+    #start-screen h1 {
+      font-size: 56px; margin-bottom: 8px;
+      background: linear-gradient(90deg, #FF8C00, #FFD700);
+      -webkit-background-clip: text; -webkit-text-fill-color: transparent;
+      background-clip: text;
+    }
+    #start-screen .subtitle {
+      font-size: 20px; opacity: 0.7; margin-bottom: 40px;
+    }
+    .controls-info {
+      display: flex; gap: 30px; margin-bottom: 40px;
+    }
+    .control-item {
+      text-align: center; opacity: 0.8;
+    }
+    .control-item .key {
+      display: inline-block; background: rgba(255,255,255,0.15);
+      border: 1px solid rgba(255,255,255,0.25);
+      border-radius: 6px; padding: 6px 14px; margin-bottom: 6px;
+      font-size: 16px; font-weight: bold;
+    }
+    .control-item .label { font-size: 13px; opacity: 0.7; }
+    #start-screen .click-prompt {
+      font-size: 15px; opacity: 0.4; animation: pulse 2s infinite;
+    }
+    @keyframes pulse {
+      0%, 100% { opacity: 0.4; }
+      50% { opacity: 0.8; }
+    }
+
+    /* Win screen */
+    #win-screen {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: rgba(0,0,0,0.75);
+      display: none; align-items: center; justify-content: center;
+      flex-direction: column; z-index: 20; color: #fff;
+    }
+    #win-screen h1 {
+      font-size: 52px; margin-bottom: 12px;
+      color: #FFD700;
+    }
+    #win-screen p {
+      font-size: 20px; opacity: 0.8; margin-bottom: 30px;
+    }
+    #win-screen .replay-btn {
+      background: linear-gradient(90deg, #FF8C00, #FFD700);
+      color: #1a1a2e; border: none; padding: 14px 36px;
+      font-size: 18px; font-weight: bold; border-radius: 10px;
+      cursor: pointer; transition: transform 0.2s;
+    }
+    #win-screen .replay-btn:hover { transform: scale(1.05); }
+
+    /* Pickup flash */
+    #pickup-flash {
+      position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+      background: radial-gradient(circle, rgba(255,200,0,0.3) 0%, transparent 70%);
+      pointer-events: none; z-index: 8;
+      opacity: 0; transition: opacity 0.15s;
+    }
+  </style>
+</head>
+<body>
+  <div id="hud">
+    <div id="carrot-count">0 / 3 carrots</div>
+    <div id="proximity-hint">A carrot is nearby...</div>
+  </div>
+  <div id="crosshair"></div>
+  <div id="pickup-flash"></div>
+
+  <div id="start-screen">
+    <h1>Carrot Hunt</h1>
+    <p class="subtitle">Find 3 carrots hidden around the Breton garden</p>
+    <div class="controls-info">
+      <div class="control-item">
+        <div class="key">W A S D</div>
+        <div class="label">Move</div>
+      </div>
+      <div class="control-item">
+        <div class="key">Mouse</div>
+        <div class="label">Look around</div>
+      </div>
+      <div class="control-item">
+        <div class="key">Shift</div>
+        <div class="label">Run</div>
+      </div>
+    </div>
+    <p class="click-prompt">Click anywhere to start</p>
+  </div>
+
+  <div id="win-screen">
+    <h1>All carrots found!</h1>
+    <p>You explored the garden and found every hidden carrot.</p>
+    <button class="replay-btn" onclick="location.reload()">Play Again</button>
+  </div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://cdn.jsdelivr.net/npm/three@0.160.0/build/three.module.js"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { FarmScene } from './FarmSceneCour.js';
+
+    // ─── DOM refs ───
+    const startScreen   = document.getElementById('start-screen');
+    const winScreen      = document.getElementById('win-screen');
+    const carrotCountEl  = document.getElementById('carrot-count');
+    const proximityHint  = document.getElementById('proximity-hint');
+    const crosshair      = document.getElementById('crosshair');
+    const pickupFlash    = document.getElementById('pickup-flash');
+
+    // ─── Three.js setup ───
+    const scene    = new THREE.Scene();
+    scene.background = new THREE.Color(0xb0c4de);          // Breton sky
+    scene.fog = new THREE.FogExp2(0xb8c8d8, 0.018);
+
+    const camera   = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.1, 200);
+    const renderer = new THREE.WebGLRenderer({ antialias: true });
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.1;
+    document.body.appendChild(renderer.domElement);
+
+    // ─── Build the farm ───
+    const farm = new FarmScene(scene);
+    farm.create();
+
+    // ─── Carrot locations (spread across the garden) ───
+    const CARROT_POSITIONS = [
+      { x:  10,  y: 0, z: -10  },   // Near the potager (southeast)
+      { x: -8,   y: 0, z:  3   },   // Near the bench by Maison 1 (west)
+      { x:  8,   y: 0, z:  8   },   // Northeast lawn near tas de bois
+    ];
+    const PICKUP_DISTANCE = 2.0;
+    const HINT_DISTANCE   = 6.0;
+
+    const carrots = [];       // { mesh, collected }
+    let collectedCount = 0;
+
+    function createCarrotModel() {
+      const group = new THREE.Group();
+
+      // Orange body (cone)
+      const bodyGeo = new THREE.ConeGeometry(0.12, 0.55, 8);
+      const bodyMat = new THREE.MeshStandardMaterial({ color: 0xFF6A00, roughness: 0.6 });
+      const body = new THREE.Mesh(bodyGeo, bodyMat);
+      body.position.y = 0.28;
+      body.rotation.x = Math.PI;        // point downward
+      body.castShadow = true;
+      group.add(body);
+
+      // Green stem/leaves
+      const leafMat = new THREE.MeshStandardMaterial({ color: 0x2D8B2D, roughness: 0.7 });
+      for (let i = 0; i < 5; i++) {
+        const leafGeo = new THREE.ConeGeometry(0.03, 0.25, 4);
+        const leaf = new THREE.Mesh(leafGeo, leafMat);
+        const angle = (i / 5) * Math.PI * 2;
+        leaf.position.set(Math.cos(angle) * 0.04, 0.65, Math.sin(angle) * 0.04);
+        leaf.rotation.x = (Math.random() - 0.5) * 0.5;
+        leaf.rotation.z = Math.cos(angle) * 0.4;
+        leaf.castShadow = true;
+        group.add(leaf);
+      }
+
+      // Glow ring on ground (subtle indicator)
+      const ringGeo = new THREE.RingGeometry(0.3, 0.45, 24);
+      const ringMat = new THREE.MeshStandardMaterial({
+        color: 0xFFD700, emissive: 0xFFD700, emissiveIntensity: 0.4,
+        roughness: 1, side: THREE.DoubleSide, transparent: true, opacity: 0.35,
+      });
+      const ring = new THREE.Mesh(ringGeo, ringMat);
+      ring.rotation.x = -Math.PI / 2;
+      ring.position.y = 0.02;
+      group.add(ring);
+
+      // Point light to draw attention
+      const glow = new THREE.PointLight(0xFFAA00, 0.6, 4);
+      glow.position.y = 0.5;
+      group.add(glow);
+
+      return group;
+    }
+
+    for (const pos of CARROT_POSITIONS) {
+      const mesh = createCarrotModel();
+      mesh.position.set(pos.x, pos.y, pos.z);
+      scene.add(mesh);
+      carrots.push({ mesh, collected: false });
+    }
+
+    // ─── Player state ───
+    const player = {
+      x: -2, y: 0, z: 1,          // spawn in courtyard
+      yaw: -Math.PI / 2, pitch: 0,  // face east toward the garden
+      speed: 3.5,
+      runSpeed: 6.5,
+      radius: 0.3,
+      eyeHeight: 1.6,
+    };
+    camera.position.set(player.x, player.eyeHeight, player.z);
+
+    // ─── Collision data from FarmScene ───
+    const COLLIDERS    = FarmScene.COLLIDERS;
+    const WORLD_BOUNDS = FarmScene.WORLD_BOUNDS;
+
+    function collidesAt(x, z) {
+      const r = player.radius;
+      // World bounds
+      if (x - r < WORLD_BOUNDS.minX || x + r > WORLD_BOUNDS.maxX) return true;
+      if (z - r < WORLD_BOUNDS.minZ || z + r > WORLD_BOUNDS.maxZ) return true;
+      // Colliders (AABB vs circle approx as AABB)
+      for (const c of COLLIDERS) {
+        if (x + r > c.minX && x - r < c.maxX &&
+            z + r > c.minZ && z - r < c.maxZ) {
+          return true;
+        }
+      }
+      return false;
+    }
+
+    // ─── Input ───
+    const keys = {};
+    window.addEventListener('keydown', e => { keys[e.code] = true; });
+    window.addEventListener('keyup',   e => { keys[e.code] = false; });
+
+    let pointerLocked = false;
+
+    document.addEventListener('pointerlockchange', () => {
+      pointerLocked = !!document.pointerLockElement;
+      crosshair.style.display = pointerLocked ? 'block' : 'none';
+      if (!pointerLocked && collectedCount < 3 && gameStarted) {
+        // Show a subtle re-lock hint — user can click canvas again
+      }
+    });
+
+    document.addEventListener('mousemove', e => {
+      if (!pointerLocked) return;
+      const sensitivity = 0.002;
+      player.yaw   -= e.movementX * sensitivity;
+      player.pitch  -= e.movementY * sensitivity;
+      player.pitch  = Math.max(-Math.PI / 2 + 0.05, Math.min(Math.PI / 2 - 0.05, player.pitch));
+    });
+
+    // Re-lock on canvas click when game is running
+    renderer.domElement.addEventListener('click', () => {
+      if (gameStarted && collectedCount < 3) {
+        renderer.domElement.requestPointerLock();
+      }
+    });
+
+    // ─── Game flow ───
+    let gameStarted = false;
+
+    startScreen.addEventListener('click', () => {
+      gameStarted = true;
+      startScreen.style.display = 'none';
+      renderer.domElement.requestPointerLock();
+    });
+
+    function showPickupFlash() {
+      pickupFlash.style.opacity = '1';
+      setTimeout(() => { pickupFlash.style.opacity = '0'; }, 250);
+    }
+
+    function showWin() {
+      document.exitPointerLock();
+      winScreen.style.display = 'flex';
+    }
+
+    // ─── Game loop ───
+    const clock = new THREE.Clock();
+
+    function update() {
+      requestAnimationFrame(update);
+      const dt = Math.min(clock.getDelta(), 0.1);
+
+      if (!gameStarted) {
+        // Slow orbit camera on start screen
+        const t = clock.elapsedTime * 0.15;
+        camera.position.set(Math.cos(t) * 18, 12, Math.sin(t) * 18);
+        camera.lookAt(0, 2, 0);
+        renderer.render(scene, camera);
+        return;
+      }
+
+      // ── Movement ──
+      const running = keys['ShiftLeft'] || keys['ShiftRight'];
+      const speed = running ? player.runSpeed : player.speed;
+
+      let moveX = 0, moveZ = 0;
+      if (keys['KeyW'] || keys['ArrowUp'])    { moveX -= Math.sin(player.yaw); moveZ -= Math.cos(player.yaw); }
+      if (keys['KeyS'] || keys['ArrowDown'])  { moveX += Math.sin(player.yaw); moveZ += Math.cos(player.yaw); }
+      if (keys['KeyA'] || keys['ArrowLeft'])  { moveX -= Math.cos(player.yaw); moveZ += Math.sin(player.yaw); }
+      if (keys['KeyD'] || keys['ArrowRight']) { moveX += Math.cos(player.yaw); moveZ -= Math.sin(player.yaw); }
+
+      // Normalize
+      const len = Math.sqrt(moveX * moveX + moveZ * moveZ);
+      if (len > 0) {
+        moveX = (moveX / len) * speed * dt;
+        moveZ = (moveZ / len) * speed * dt;
+
+        // Try X then Z separately (slide along walls)
+        const newX = player.x + moveX;
+        const newZ = player.z + moveZ;
+
+        if (!collidesAt(newX, player.z)) player.x = newX;
+        if (!collidesAt(player.x, newZ)) player.z = newZ;
+      }
+
+      // ── Camera ──
+      camera.position.set(player.x, player.eyeHeight, player.z);
+      const lookDir = new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ');
+      camera.rotation.copy(lookDir);
+
+      // ── Carrot animation & pickup ──
+      let nearestDist = Infinity;
+      const time = clock.elapsedTime;
+
+      for (const carrot of carrots) {
+        if (carrot.collected) continue;
+
+        // Bob + rotate animation
+        carrot.mesh.position.y = 0.25 + Math.sin(time * 2.5 + carrot.mesh.position.x) * 0.12;
+        carrot.mesh.rotation.y = time * 1.2;
+
+        // Glow pulse
+        const ring = carrot.mesh.children[carrot.mesh.children.length - 2]; // ring mesh
+        if (ring && ring.material) {
+          ring.material.opacity = 0.25 + Math.sin(time * 3) * 0.15;
+        }
+
+        // Distance check
+        const dx = player.x - carrot.mesh.position.x;
+        const dz = player.z - carrot.mesh.position.z;
+        const dist = Math.sqrt(dx * dx + dz * dz);
+
+        if (dist < nearestDist) nearestDist = dist;
+
+        if (dist < PICKUP_DISTANCE) {
+          // Collect!
+          carrot.collected = true;
+          scene.remove(carrot.mesh);
+          collectedCount++;
+          carrotCountEl.textContent = `${collectedCount} / 3 carrots`;
+          showPickupFlash();
+
+          if (collectedCount >= 3) {
+            setTimeout(showWin, 600);
+          }
+        }
+      }
+
+      // Proximity hint
+      if (nearestDist < HINT_DISTANCE && collectedCount < 3) {
+        proximityHint.style.opacity = '1';
+        const warmth = 1 - (nearestDist / HINT_DISTANCE);
+        proximityHint.textContent = warmth > 0.6 ? 'Very close!' : 'A carrot is nearby...';
+      } else {
+        proximityHint.style.opacity = '0';
+      }
+
+      renderer.render(scene, camera);
+    }
+
+    // ─── Resize handling ───
+    window.addEventListener('resize', () => {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    });
+
+    // Start the loop
+    update();
+  </script>
+</body>
+</html>
