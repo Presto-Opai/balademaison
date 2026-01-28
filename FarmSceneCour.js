@@ -43,8 +43,15 @@ export class FarmScene {
     { minX: 7, maxX: 13, minZ: -14.5, maxZ: -13, maxY: 3 },
     // Murets divers
     { minX: -4, maxX: 0, minZ: -13.2, maxZ: -12.7, maxY: 2.5 },
-    { minX: 0, maxX: 5, minZ: -1.2, maxZ: -0.8, maxY: 0.7 },
-    { minX: 0, maxX: 0.3, minZ: -1, maxZ: 3, maxY: 0.7 },
+    // Flower triangle murets (jumpable, height 0.7)
+    // Wall C (horizontal bottom)
+    { minX: 0.2, maxX: 4.6, minZ: -0.45, maxZ: -0.15, maxY: 0.7 },
+    // Wall B (vertical left)
+    { minX: 0.15, maxX: 0.45, minZ: -0.3, maxZ: 2.4, maxY: 0.7 },
+    // Wall A (diagonal) - approximated with angled box
+    { minX: 0.5, maxX: 4.6, minZ: -0.4, maxZ: 2.1, maxY: 0.7 },
+    // Thick hedge at back of garden
+    { minX: 7.5, maxX: 9.5, minZ: -3.5, maxZ: 3.5, maxY: 2.5 },
   ];
 
   static WORLD_BOUNDS = {
@@ -451,37 +458,43 @@ export class FarmScene {
   }
 
   // ═══════════════════════════════
-  //  PORTILLON BLANC (plan: x0, y1)
+  //  PORTILLON BLANC (rotated 90°, from house wall to hedge)
   // ═══════════════════════════════
 
   createPortillonBlanc() {
-    const p = P(0, 1);
+    // Portillon now runs along Z axis (orthogonal to house), from z=7 (house) to z=11 (near hedge)
+    const startZ = 7;      // house north wall
+    const endZ = 11;       // before the hedge
+    const x = -12;         // west edge of Maison 1
+    const length = endZ - startZ;  // ~4 units
+    const numSlats = Math.floor(length / 0.12);
+
     const group = new THREE.Group();
     const woodMat = new THREE.MeshStandardMaterial({ color: 0xF0EBE0, roughness: 0.7 });
 
-    // Posts
-    for (const gx of [0, 0.9]) {
+    // Posts at start and end
+    for (const gz of [0, length]) {
       const post = new THREE.Mesh(new THREE.BoxGeometry(0.1, 1.3, 0.1), woodMat);
-      post.position.set(p.x + gx, 0.65, p.z);
+      post.position.set(x, 0.65, startZ + gz);
       post.castShadow = true;
       group.add(post);
     }
 
-    // Slats with pointed tops
-    for (let i = 0; i < 7; i++) {
-      const slat = new THREE.Mesh(new THREE.BoxGeometry(0.06, 1.0, 0.04), woodMat);
-      slat.position.set(p.x + 0.08 + i * 0.12, 0.55, p.z);
+    // Slats with pointed tops (along Z)
+    for (let i = 0; i < numSlats; i++) {
+      const slat = new THREE.Mesh(new THREE.BoxGeometry(0.04, 1.0, 0.06), woodMat);
+      slat.position.set(x, 0.55, startZ + 0.08 + i * 0.12);
       group.add(slat);
 
       const point = new THREE.Mesh(new THREE.ConeGeometry(0.04, 0.1, 4), woodMat);
-      point.position.set(p.x + 0.08 + i * 0.12, 1.08, p.z);
+      point.position.set(x, 1.08, startZ + 0.08 + i * 0.12);
       group.add(point);
     }
 
-    // Cross bars
+    // Cross bars (along Z)
     for (const barY of [0.3, 0.8]) {
-      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.85, 0.05, 0.04), woodMat);
-      bar.position.set(p.x + 0.45, barY, p.z - 0.03);
+      const bar = new THREE.Mesh(new THREE.BoxGeometry(0.04, 0.05, length - 0.15), woodMat);
+      bar.position.set(x - 0.03, barY, startZ + length / 2);
       group.add(bar);
     }
 
@@ -507,30 +520,135 @@ export class FarmScene {
       this.scene.add(wall);
     }
 
-    // Muret (plan x:12, y:-4, w:0.2, h:8) vertical
+    // ═══════════════════════════════
+    // FLOWER TRIANGLE in courtyard
+    // Triangle vertices: SW(0.3, -0.3), SE(4.5, -0.3), N(0.3, 2.8)
+    // Contains tree at (2, 0), jumpable murets (height 0.7)
+    // Gap at north tip for passage
+    // ═══════════════════════════════
+
+    // Wall C (bottom, horizontal) - parallel to Maison 2, with gap to pass
+    // From (0.3, -0.3) to (4.5, -0.3), length 4.2
     {
-      const p = P(12, -4);
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.3, 0.7, 8), muretMat);
-      wall.position.set(p.x + 0.1, 0.35, p.z + 4);
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(4.2, 0.7, 0.25), muretMat);
+      wall.position.set(0.3 + 4.2/2, 0.35, -0.3);
       wall.castShadow = true;
       this.scene.add(wall);
     }
 
-    // Muret (plan x:12, y:-8, w:5, h:0.2)
-    this.addMuret(P(12, -8), 5, 0.3, 0.7, muretMat);
-
-    // Muret diagonal (plan x:12, y:0, rot:-58°)
+    // Wall B (left, vertical) - parallel to Maison 1 east facade
+    // From (0.3, -0.3) to (0.3, 2.3), length 2.6 (leaving 0.5 gap at top)
     {
-      const p = P(12, 0);
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(9.5, 0.7, 0.3), muretMat);
-      wall.position.set(p.x + 4, 0.35, p.z);
-      wall.rotation.y = 58 * Math.PI / 180;
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 2.6), muretMat);
+      wall.position.set(0.3, 0.35, -0.3 + 2.6/2);
       wall.castShadow = true;
       this.scene.add(wall);
     }
+
+    // Wall A (diagonal, hypotenuse) - connecting SE to near N
+    // From (4.5, -0.3) toward (0.7, 2.0), leaving gap at north
+    {
+      const x1 = 4.5, z1 = -0.3;
+      const x2 = 0.7, z2 = 2.0;
+      const dx = x2 - x1;
+      const dz = z2 - z1;
+      const length = Math.sqrt(dx*dx + dz*dz);
+      const angle = Math.atan2(dx, dz);  // rotation around Y
+
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, length), muretMat);
+      wall.position.set((x1+x2)/2, 0.35, (z1+z2)/2);
+      wall.rotation.y = -angle;
+      wall.castShadow = true;
+      this.scene.add(wall);
+    }
+
+    // Flower bed inside triangle
+    this.createTriangleFlowerBed();
 
     // Muret (plan x:21, y:-10, w:3, h:0.5)
     this.addMuret(P(21, -10), 3, 0.5, 0.7, muretMat);
+  }
+
+  createTriangleFlowerBed() {
+    // Add colorful flowers inside the triangle (around tree at (2, 0))
+    const flowerColors = [0xff6b6b, 0xffd93d, 0x6bcb77, 0x4d96ff, 0xff6eb4, 0xffa500];
+
+    // Scatter flowers within triangle bounds
+    for (let i = 0; i < 40; i++) {
+      // Random point, reject if outside triangle
+      const x = 0.5 + Math.random() * 3.5;
+      const z = -0.2 + Math.random() * 2.2;
+
+      // Check if inside triangle (simple bounds check)
+      // Triangle: (0.3,-0.3), (4.5,-0.3), (0.3,2.8)
+      // Left edge: x >= 0.3
+      // Bottom edge: z >= -0.3
+      // Diagonal edge: roughly z < 2.8 - (x-0.3)*0.75
+      const maxZ = 2.3 - (x - 0.3) * 0.6;
+      if (x < 0.5 || x > 4.2 || z < -0.1 || z > maxZ) continue;
+
+      // Skip if too close to tree at (2, 0)
+      const distToTree = Math.sqrt((x-2)**2 + z**2);
+      if (distToTree < 0.8) continue;
+
+      const color = flowerColors[Math.floor(Math.random() * flowerColors.length)];
+
+      // Flower stem
+      const stemGeo = new THREE.CylinderGeometry(0.015, 0.015, 0.15 + Math.random() * 0.1, 4);
+      const stemMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.8 });
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.position.set(x, 0.1, z);
+      this.scene.add(stem);
+
+      // Flower head
+      const petalGeo = new THREE.SphereGeometry(0.05 + Math.random() * 0.03, 6, 6);
+      const petalMat = new THREE.MeshStandardMaterial({ color, roughness: 0.6 });
+      const petal = new THREE.Mesh(petalGeo, petalMat);
+      petal.position.set(x, 0.2 + Math.random() * 0.05, z);
+      petal.scale.y = 0.6;
+      this.scene.add(petal);
+    }
+
+    // Add some taller flowers near edges
+    for (let i = 0; i < 15; i++) {
+      const angle = Math.random() * Math.PI * 0.6;
+      const dist = 0.8 + Math.random() * 1.5;
+      const x = 2 + Math.cos(angle) * dist;
+      const z = 0 + Math.sin(angle) * dist;
+
+      if (x < 0.6 || x > 4 || z < 0 || z > 1.8) continue;
+
+      const color = flowerColors[Math.floor(Math.random() * flowerColors.length)];
+
+      // Taller flower
+      const stemGeo = new THREE.CylinderGeometry(0.02, 0.02, 0.25, 4);
+      const stemMat = new THREE.MeshStandardMaterial({ color: 0x228B22, roughness: 0.8 });
+      const stem = new THREE.Mesh(stemGeo, stemMat);
+      stem.position.set(x, 0.125, z);
+      this.scene.add(stem);
+
+      // Multiple petals
+      for (let p = 0; p < 5; p++) {
+        const pAngle = (p / 5) * Math.PI * 2;
+        const petalGeo = new THREE.SphereGeometry(0.035, 5, 5);
+        const petalMat = new THREE.MeshStandardMaterial({ color, roughness: 0.5 });
+        const petal = new THREE.Mesh(petalGeo, petalMat);
+        petal.position.set(
+          x + Math.cos(pAngle) * 0.04,
+          0.28,
+          z + Math.sin(pAngle) * 0.04
+        );
+        petal.scale.y = 0.7;
+        this.scene.add(petal);
+      }
+
+      // Center
+      const centerGeo = new THREE.SphereGeometry(0.025, 5, 5);
+      const centerMat = new THREE.MeshStandardMaterial({ color: 0xFFD700, roughness: 0.5 });
+      const center = new THREE.Mesh(centerGeo, centerMat);
+      center.position.set(x, 0.29, z);
+      this.scene.add(center);
+    }
   }
 
   addMuret(p, w, d, h, mat) {
@@ -547,8 +665,8 @@ export class FarmScene {
   // ═══════════════════════════════
 
   createHaiesPerimetre() {
-    // ── Nord (plan: y=5, x=0→25, w=25) ──
-    this.createHedgeRow(P(0, 5), 27, 3, 'x');
+    // ── Nord (plan: y=5, x=1→25, w=26) - starts east of portillon ──
+    this.createHedgeRow(P(1, 5), 26, 3, 'x');
 
     // ── Est (plan: x=24, y=-7→18, h=25) ──
     this.createHedgeRow(P(24, -8), 22, 3, 'z');
@@ -566,6 +684,60 @@ export class FarmScene {
 
     // Small hedge near entrance (plan x:0, y:4)
     this.createHedgeBall(P(0, 4), 1.5, 2);
+
+    // ── Thick hedge at back of garden (fond du jardin) ──
+    // Dense hedge row in the far eastern part of the garden
+    this.createThickHedge(8, 3, 6);  // x=8, z from -3 to 3, thick and tall
+  }
+
+  createThickHedge(x, zStart, length) {
+    // Create a thick, dense hedge with multiple layers
+    const height = 2.5;
+    const depth = 1.2;  // thick hedge
+
+    for (let row = 0; row < 3; row++) {
+      const rowX = x + row * 0.4;
+      const count = Math.ceil(length / 0.6);
+
+      for (let i = 0; i < count; i++) {
+        const t = i / count;
+        const s = 0.4 + Math.random() * 0.25;
+        const geo = new THREE.SphereGeometry(s, 6, 6);
+        const mat = new THREE.MeshStandardMaterial({
+          color: new THREE.Color(0x1a4d1a).lerp(new THREE.Color(0x2d6b2d), Math.random() * 0.4),
+          roughness: 0.95,
+        });
+        const sphere = new THREE.Mesh(geo, mat);
+        sphere.scale.y = height / (s * 2);
+
+        sphere.position.set(
+          rowX + (Math.random() - 0.5) * 0.3,
+          height / 2 + Math.random() * 0.15,
+          zStart + t * length + Math.random() * 0.2
+        );
+        sphere.castShadow = true;
+        this.scene.add(sphere);
+      }
+    }
+
+    // Add some taller accent spheres
+    for (let i = 0; i < 5; i++) {
+      const s = 0.5 + Math.random() * 0.3;
+      const geo = new THREE.SphereGeometry(s, 6, 6);
+      const mat = new THREE.MeshStandardMaterial({
+        color: new THREE.Color(0x1f5c1f).lerp(new THREE.Color(0x3d7a3d), Math.random() * 0.3),
+        roughness: 0.9,
+      });
+      const sphere = new THREE.Mesh(geo, mat);
+      sphere.scale.y = (height + 0.5) / (s * 2);
+      sphere.position.set(
+        x + 0.4 + Math.random() * 0.8,
+        (height + 0.3) / 2,
+        zStart + Math.random() * length
+      );
+      sphere.castShadow = true;
+      this.scene.add(sphere);
+    }
   }
 
   createHedgeRow(p, length, height, axis) {

@@ -132,6 +132,10 @@
         <div class="key">Shift</div>
         <div class="label">Run</div>
       </div>
+      <div class="control-item">
+        <div class="key">Space</div>
+        <div class="label">Jump</div>
+      </div>
     </div>
     <p class="click-prompt">Click anywhere to start</p>
   </div>
@@ -184,7 +188,7 @@
     // ─── Carrot locations (spread across the garden) ───
     const CARROT_POSITIONS = [
       { x:  10,  y: 0, z: -10  },   // Near the potager (southeast)
-      { x: -8,   y: 0, z:  3   },   // Near the bench by Maison 1 (west)
+      { x:  3,   y: 0, z:  5   },   // In the flower triangle (courtyard)
       { x:  8,   y: 0, z:  8   },   // Northeast lawn near tas de bois
     ];
     const PICKUP_DISTANCE = 2.0;
@@ -252,6 +256,11 @@
       runSpeed: 6.5,
       radius: 0.3,
       eyeHeight: 1.6,
+      // Jump physics
+      vy: 0,                       // vertical velocity
+      onGround: true,
+      jumpSpeed: 6,
+      gravity: 18,
     };
     camera.position.set(player.x, player.eyeHeight, player.z);
 
@@ -259,15 +268,18 @@
     const COLLIDERS    = FarmScene.COLLIDERS;
     const WORLD_BOUNDS = FarmScene.WORLD_BOUNDS;
 
-    function collidesAt(x, z) {
+    function collidesAt(x, z, playerY = 0) {
       const r = player.radius;
       // World bounds
       if (x - r < WORLD_BOUNDS.minX || x + r > WORLD_BOUNDS.maxX) return true;
       if (z - r < WORLD_BOUNDS.minZ || z + r > WORLD_BOUNDS.maxZ) return true;
       // Colliders (AABB vs circle approx as AABB)
+      // Player can jump over low walls (maxY check)
       for (const c of COLLIDERS) {
         if (x + r > c.minX && x - r < c.maxX &&
             z + r > c.minZ && z - r < c.maxZ) {
+          // If wall is low enough and player is high enough, allow passage
+          if (c.maxY && playerY > c.maxY) continue;
           return true;
         }
       }
@@ -339,6 +351,23 @@
         return;
       }
 
+      // ── Jump physics ──
+      if ((keys['Space']) && player.onGround) {
+        player.vy = player.jumpSpeed;
+        player.onGround = false;
+      }
+
+      // Apply gravity
+      player.vy -= player.gravity * dt;
+      player.y += player.vy * dt;
+
+      // Ground collision
+      if (player.y <= 0) {
+        player.y = 0;
+        player.vy = 0;
+        player.onGround = true;
+      }
+
       // ── Movement ──
       const running = keys['ShiftLeft'] || keys['ShiftRight'];
       const speed = running ? player.runSpeed : player.speed;
@@ -359,12 +388,12 @@
         const newX = player.x + moveX;
         const newZ = player.z + moveZ;
 
-        if (!collidesAt(newX, player.z)) player.x = newX;
-        if (!collidesAt(player.x, newZ)) player.z = newZ;
+        if (!collidesAt(newX, player.z, player.y)) player.x = newX;
+        if (!collidesAt(player.x, newZ, player.y)) player.z = newZ;
       }
 
       // ── Camera ──
-      camera.position.set(player.x, player.eyeHeight, player.z);
+      camera.position.set(player.x, player.eyeHeight + player.y, player.z);
       const lookDir = new THREE.Euler(player.pitch, player.yaw, 0, 'YXZ');
       camera.rotation.copy(lookDir);
 
