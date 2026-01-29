@@ -548,8 +548,8 @@ export class FarmScene {
     // Wall A (diagonal, hypotenuse) - connecting SE to near N
     // From (4.5, -0.3) toward (0.7, 2.0), leaving gap at north
     {
-      const x1 = 4.5, z1 = -0.3;
-      const x2 = 0.7, z2 = 2.0;
+      const x1 = 4.5, z1 = 2.0;
+      const x2 = 0.7, z2 = -0.3;
       const dx = x2 - x1;
       const dz = z2 - z1;
       const length = Math.sqrt(dx*dx + dz*dz);
@@ -1492,3 +1492,4 @@ export class FarmScene {
     parent.add(ivyGroup);
   }
 }
+
