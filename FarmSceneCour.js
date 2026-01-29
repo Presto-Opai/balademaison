@@ -539,8 +539,8 @@ export class FarmScene {
     // Wall B (left, vertical) - parallel to Maison 1 east facade
     // From (0.3, -0.3) to (0.3, 2.3), length 2.6 (leaving 0.5 gap at top)
     {
-      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 2.6), muretMat);
-      wall.position.set(0.3, 0.35, -0.3 + 2.6/2);
+      const wall = new THREE.Mesh(new THREE.BoxGeometry(0.25, 0.7, 6.0), muretMat);
+      wall.position.set(0.3, 0.35, -0.3 + 6.0/2);
       wall.castShadow = true;
       this.scene.add(wall);
     }
@@ -548,7 +548,7 @@ export class FarmScene {
     // Wall A (diagonal, hypotenuse) - connecting SE to near N
     // From (4.5, -0.3) toward (0.7, 2.0), leaving gap at north
     {
-      const x1 = 4.5, z1 = 2.0;
+      const x1 = 4.5, z1 = 6.0;
       const x2 = 0.7, z2 = -0.3;
       const dx = x2 - x1;
       const dz = z2 - z1;
@@ -577,14 +577,14 @@ export class FarmScene {
     for (let i = 0; i < 40; i++) {
       // Random point, reject if outside triangle
       const x = 0.5 + Math.random() * 3.5;
-      const z = -0.2 + Math.random() * 2.2;
+      const z = -0.2 + Math.random() * 7.2;
 
       // Check if inside triangle (simple bounds check)
       // Triangle: (0.3,-0.3), (4.5,-0.3), (0.3,2.8)
       // Left edge: x >= 0.3
       // Bottom edge: z >= -0.3
       // Diagonal edge: roughly z < 2.8 - (x-0.3)*0.75
-      const maxZ = 2.3 - (x - 0.3) * 0.6;
+      const maxZ = 6 - (x - 0.3) * 0.6;
       if (x < 0.5 || x > 4.2 || z < -0.1 || z > maxZ) continue;
 
       // Skip if too close to tree at (2, 0)
@@ -1492,4 +1492,5 @@ export class FarmScene {
     parent.add(ivyGroup);
   }
 }
+
 
