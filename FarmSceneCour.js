@@ -687,7 +687,7 @@ export class FarmScene {
 
     // ── Thick hedge at back of garden (fond du jardin) ──
     // Dense hedge row in the far eastern part of the garden
-    this.createThickHedge(8, 3, 6);  // x=8, z from -3 to 3, thick and tall
+    this.createThickHedge(12, -12, 6);  // x=8, z from -3 to 3, thick and tall
   }
 
   createThickHedge(x, zStart, length) {
@@ -1492,5 +1492,6 @@ export class FarmScene {
     parent.add(ivyGroup);
   }
 }
+
 
 
